@@ -5,7 +5,7 @@ import { fetchRMSJobList } from "../services/api";
 import { Link } from "react-router-dom";
 import moment from "moment/moment";
 
-function Home({ isLoggedIn }) {
+function homeTesting({ isLoggedIn }) {
   const [tableData, setTableData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -215,7 +215,7 @@ function Home({ isLoggedIn }) {
   );
 }
 
-export default Home;
+export default homeTesting;
 
 const filterOptions = {
   jobTypes: ["PMS_REPORT", "RATE_SHOP", "EVENT"],

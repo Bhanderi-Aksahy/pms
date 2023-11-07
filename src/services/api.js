@@ -6,6 +6,11 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  proxy: {
+    protocol: "http",
+    host: process.env.REACT_APP_APIBASEPATH, 
+    port: 8080
+  }
 });
 
 export const fetchRMSJobList = async (startDate, endDate) => {

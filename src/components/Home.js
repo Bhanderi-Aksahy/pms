@@ -16,6 +16,7 @@ function Home({ isLoggedIn }) {
     processType: "",
     status: "",
     propertyCode: "",
+    pms : "",
     startDate: moment(new Date()).format("YYYY-MM-DD"),
     endDate: moment(new Date()).format("YYYY-MM-DD"),
   });
@@ -56,13 +57,15 @@ function Home({ isLoggedIn }) {
     const processType = row.processType || "";
     const status = row.status || "";
     const propertyCode = row.propertyCode || "";
+    const pms = row.pms || "";
 
     return (
       (filters.jobType === "" || jobType === filters.jobType) &&
       (filters.processType === "" || processType === filters.processType) &&
       (filters.status === "" || status === filters.status) &&
       (filters.propertyCode === "" ||
-        propertyCode.includes(filters.propertyCode))
+        propertyCode.includes(filters.propertyCode)) &&
+      (filters.pms === "" || pms === filters.pms)
     );
   });
 
@@ -152,6 +155,18 @@ function Home({ isLoggedIn }) {
                 </option>
               ))}
             </select>
+            <select
+              name="pms"
+              value={filters.pms}
+              onChange={handleFilterChange}
+            >
+              <option value="">Select PMS</option>
+              {filterOptions.pms.map((pms) => (
+                <option key={pms} value={pms}>
+                  {pms}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               name="propertyCode"
@@ -177,7 +192,6 @@ function Home({ isLoggedIn }) {
               max={currentDate}
             />
           </div>
-
           {loading ? (
             <div>Loading...</div>
           ) : (
@@ -350,6 +364,7 @@ export default Home;
 
 const filterOptions = {
   jobTypes: ["PMS_REPORT", "RATE_SHOP", "EVENT"],
-  processTypes: ["PULL_REPORT", "REPORT_TO_UNI", "CREATE_WIDGET"],
+  processTypes: ["PULL_REPORT", "REPORT_TO_UNI", "CREATE_WIDGET" , "PULL_STAR_REPORT"],
   statuses: ["SUCCESS", "INPROCESS", "FAILED"],
+  pms : ["Choice" , "Best Western" , "HotelKey" , "OperaCloud"]
 };

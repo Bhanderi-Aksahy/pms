@@ -12,6 +12,7 @@ function Home({ isLoggedIn }) {
   const [loading, setLoading] = useState(true);
   const currentDate = moment(new Date()).format("YYYY-MM-DD");
   const [filters, setFilters] = useState({
+    pms: "",
     jobType: "",
     processType: "",
     status: "",
@@ -52,12 +53,14 @@ function Home({ isLoggedIn }) {
   };
 
   const filteredData = tableData.filter((row) => {
+    const pms = row.pms || "";
     const jobType = row.jobType || "";
     const processType = row.processType || "";
     const status = row.status || "";
     const propertyCode = row.propertyCode || "";
 
     return (
+      (filters.pms === "" || pms === filters.pms) &&
       (filters.jobType === "" || jobType === filters.jobType) &&
       (filters.processType === "" || processType === filters.processType) &&
       (filters.status === "" || status === filters.status) &&
@@ -116,6 +119,20 @@ function Home({ isLoggedIn }) {
       {isLoggedIn ? (
         <div>
           <div className="filter-form">
+
+          <select
+              name="pms"
+              value={filters.pms}
+              onChange={handleFilterChange}
+            >
+              <option value="">Select PMS</option>
+              {filterOptions.pms_list.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+
             <select
               name="jobType"
               value={filters.jobType}
@@ -349,7 +366,13 @@ function Home({ isLoggedIn }) {
 export default Home;
 
 const filterOptions = {
-  jobTypes: ["PMS_REPORT", "RATE_SHOP", "EVENT"],
-  processTypes: ["PULL_REPORT", "REPORT_TO_UNI", "CREATE_WIDGET"],
+  jobTypes: ["PMS_REPORT", "RATE_SHOP", "EVENT", "STAR_REPORT"],
+  processTypes: [
+    "PULL_REPORT",
+    "REPORT_TO_UNI_RES",
+    "REPORT_TO_UNI_OCC",
+    "CREATE_WIDGET",
+  ],
   statuses: ["SUCCESS", "INPROCESS", "FAILED"],
+  pms_list: ["Choice", "OperaCloud"],
 };

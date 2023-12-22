@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
+import { GlobalLoading, showLoading } from 'react-global-loading';
 import "../styles/App.css";
 import { fetchRMSJobList } from "../services/api";
-
-import { Link } from "react-router-dom";
 import moment from "moment/moment";
+import AWS from "aws-sdk";
+import LogViewModal from "./LogViewModal";
 
 function Home({ isLoggedIn }) {
   const [tableData, setTableData] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [logData, setLogData] = useState("");
+  const [itemData, setItemData] = useState(null);
   const itemsPerPage = 20;
   const [loading, setLoading] = useState(true);
   const currentDate = moment(new Date()).format("YYYY-MM-DD");
@@ -21,20 +24,51 @@ function Home({ isLoggedIn }) {
     endDate: moment(new Date()).format("YYYY-MM-DD"),
   });
 
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+
+  const openModal = async (item_details) => {
+    // job_id = '2364'
+    setLogData("");
+    setItemData(null);
+    showLoading(true);
+    await fetchLogFile(item_details);
+    showLoading(false);
+    setModalIsOpen(true);
+  };
+  const closeModal = () => setModalIsOpen(false);
+
+  const fetchLogFile = async (item_details) => {
+
+    // job_id = '2371'
+    var job_id = item_details.id;
+    try {
+
+      const s3 = new AWS.S3({
+        accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+        region: process.env.REACT_APP_AWS_REGION
+      });
+
+      const params = {
+        Bucket: process.env.REACT_APP_AWS_BUCKET,
+        Key: job_id+".log"
+      };
+
+      const { Body } = await s3.getObject(params).promise();
+      setLogData(Body.toString("utf-8"));
+      setItemData(item_details);
+    } catch (error) {
+      console.error("Error fetching log file:", error);
+      setLogData("Data not found!!!");
+    }
+  };
+
   useEffect(() => {
-    // let date = new Date();
-    // let firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-    // let lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-    // let firstDay = date;
-    // let lastDay = date;
-
-    // console.log("firstDay :: ",firstDay);
-    // console.log("lastDay :: ",lastDay);
-
-    if (filters?.startDate != null && filters.endDate != null) {
+    //Pass end date as start date
+    if (filters?.startDate != null) {
       setLoading(true);
-      fetchRMSJobList(filters?.startDate, filters?.endDate)
+      
+      fetchRMSJobList(filters?.startDate, filters?.startDate)
         .then((data) => {
           setTableData(data.data);
           setLoading(false);
@@ -98,24 +132,25 @@ function Home({ isLoggedIn }) {
   };
 
   const getDuration = (start, end) => {
-    console.log("start :: ", start);
-    console.log("end :: ", end);
-
     var startTime = moment(start, "DD-MM-YYYY hh:mm:ss");
     var endTime = moment(end, "DD-MM-YYYY hh:mm:ss");
     var hoursDiff = endTime.diff(startTime, "hours");
-    console.log("Hours:" + hoursDiff);
-
     var minutesDiff = endTime.diff(startTime, "minutes");
-    console.log("Minutes:" + minutesDiff);
-
     var secondsDiff = endTime.diff(startTime, "seconds");
-    console.log("Seconds:" + secondsDiff);
     return `${hoursDiff}h ${minutesDiff}m ${secondsDiff}s`;
   };
 
   return (
     <div className="Home">
+      {/* <CustomModal isOpen={modalIsOpen} onRequestClose={closeModal} logContent={logData} /> */}
+      <GlobalLoading />
+      <LogViewModal
+        show={modalIsOpen}
+        onHide={closeModal}
+        logContent={logData}
+        itemData={itemData}
+      />
+
       {isLoggedIn ? (
         <div>
           <div className="filter-form">
@@ -145,6 +180,7 @@ function Home({ isLoggedIn }) {
                 </option>
               ))}
             </select>
+
             <select
               name="processType"
               value={filters.processType}
@@ -157,6 +193,7 @@ function Home({ isLoggedIn }) {
                 </option>
               ))}
             </select>
+
             <select
               name="status"
               value={filters.status}
@@ -169,6 +206,7 @@ function Home({ isLoggedIn }) {
                 </option>
               ))}
             </select>
+
             <input
               type="text"
               name="propertyCode"
@@ -176,6 +214,7 @@ function Home({ isLoggedIn }) {
               value={filters.propertyCode}
               onChange={handleFilterChange}
             />
+
             <input
               type="date"
               name="startDate"
@@ -184,7 +223,7 @@ function Home({ isLoggedIn }) {
               onChange={handleFilterChange}
               max={currentDate}
             />
-            <input
+            {/* <input
               type="date"
               name="endDate"
               placeholder="End Date"
@@ -192,7 +231,7 @@ function Home({ isLoggedIn }) {
               onChange={handleFilterChange}
               min={filters?.startDate}
               max={currentDate}
-            />
+            /> */}
           </div>
 
           {loading ? (
@@ -212,8 +251,7 @@ function Home({ isLoggedIn }) {
                     <th style={{ width: "10%" }}>Updated At</th>
                     <th style={{ width: "8%" }}>Duration</th>
                     <th style={{ width: "6%" }}>Status</th>
-                    <th style={{ width: "5%" }}>View</th>
-                    <th style={{ width: "5%" }}>Log File</th>
+                    <th style={{ width: "5%" }}>Log View</th>
                     <th>Error Note</th>
                   </tr>
                 </thead>
@@ -225,7 +263,7 @@ function Home({ isLoggedIn }) {
                         currentPage * itemsPerPage
                       )
                       .map((row, index) => (
-                        <tr key={index}>
+                        <tr key={index} className="myRow">
                           <td>{row.id}</td>
                           <td>{row.propertyCode}</td>
                           <td>{row.pulledDate}</td>
@@ -252,7 +290,7 @@ function Home({ isLoggedIn }) {
                               verticalAlign: "middle",
                             }}
                           >
-                            <Link to={`/job/${row.id}`}>
+                            <div onClick={()=>{openModal(row)}}>
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="20"
@@ -264,16 +302,16 @@ function Home({ isLoggedIn }) {
                                 <path
                                   d="M9.99967 11.6667C10.9201 11.6667 11.6663 10.9205 11.6663 10C11.6663 9.07952 10.9201 8.33333 9.99967 8.33333C9.0792 8.33333 8.33301 9.07952 8.33301 10C8.33301 10.9205 9.0792 11.6667 9.99967 11.6667Z"
                                   stroke="#202842"
-                                  stroke-width="1.5"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
                                 />
                                 <path
                                   d="M18.3337 10C16.1112 13.8892 13.3337 15.8333 10.0003 15.8333C6.66699 15.8333 3.88949 13.8892 1.66699 10C3.88949 6.11083 6.66699 4.16666 10.0003 4.16666C13.3337 4.16666 16.1112 6.11083 18.3337 10Z"
                                   stroke="#202842"
-                                  stroke-width="1.5"
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
                                 />
                                 <defs>
                                   <clipPath id="clip0_13_375">
@@ -281,64 +319,7 @@ function Home({ isLoggedIn }) {
                                   </clipPath>
                                 </defs>
                               </svg>
-                            </Link>
-                          </td>
-                          <td
-                            style={{
-                              textAlign: "center",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            <a
-                              href={row.logFile}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                data-ember-extension="1"
-                              >
-                                <g clip-path="url(#clip0_4837_32021)">
-                                  <path
-                                    d="M4.16675 4.16667C4.16675 3.72464 4.34234 3.30072 4.6549 2.98816C4.96746 2.67559 5.39139 2.5 5.83341 2.5H14.1667C14.6088 2.5 15.0327 2.67559 15.3453 2.98816C15.6578 3.30072 15.8334 3.72464 15.8334 4.16667V15.8333C15.8334 16.2754 15.6578 16.6993 15.3453 17.0118C15.0327 17.3244 14.6088 17.5 14.1667 17.5H5.83341C5.39139 17.5 4.96746 17.3244 4.6549 17.0118C4.34234 16.6993 4.16675 16.2754 4.16675 15.8333V4.16667Z"
-                                    stroke="#202842"
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                  />
-                                  <path
-                                    d="M7.5 5.83331H12.5"
-                                    stroke="#202842"
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                  />
-                                  <path
-                                    d="M7.5 9.16669H12.5"
-                                    stroke="#202842"
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                  />
-                                  <path
-                                    d="M7.5 12.5H10.8333"
-                                    stroke="#202842"
-                                    stroke-width="1.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                  />
-                                </g>
-                                <defs>
-                                  <clipPath id="clip0_4837_32021">
-                                    <rect width="20" height="20" fill="white" />
-                                  </clipPath>
-                                </defs>
-                              </svg>
-                            </a>
+                            </div>
                           </td>
                           <td>{row.errorNote}</td>
                         </tr>
@@ -374,5 +355,5 @@ const filterOptions = {
     "CREATE_WIDGET",
   ],
   statuses: ["SUCCESS", "INPROCESS", "FAILED"],
-  pms_list: ["Choice", "OperaCloud"],
+  pms_list: ["Choice", "OperaCloud","RedRoof"],
 };

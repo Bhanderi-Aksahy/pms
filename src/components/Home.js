@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { GlobalLoading, showLoading } from 'react-global-loading';
+import { GlobalLoading, showLoading } from "react-global-loading";
 import "../styles/App.css";
 import { fetchRMSJobList } from "../services/api";
 import moment from "moment/moment";
 import AWS from "aws-sdk";
 import LogViewModal from "./LogViewModal";
+import StatusModal from "./StatusModal";
 
 function Home({ isLoggedIn }) {
   const [tableData, setTableData] = useState([]);
@@ -25,6 +26,7 @@ function Home({ isLoggedIn }) {
   });
 
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [statusModalIsOpen, setStatusModalIsOpen] = useState(false);
 
   const openModal = async (item_details) => {
     // job_id = '2364'
@@ -35,23 +37,36 @@ function Home({ isLoggedIn }) {
     showLoading(false);
     setModalIsOpen(true);
   };
-  const closeModal = () => setModalIsOpen(false);
+
+
+  const updateStatusModal = async (item_details) => {
+    // setItemData(item_details);
+    // setStatusModalIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setItemData(null);
+    setModalIsOpen(false)
+  };
+
+  const closeStatusModal = () => {
+    setItemData(null);
+    setStatusModalIsOpen(false)
+  };
 
   const fetchLogFile = async (item_details) => {
-
-    // job_id = '2371'
+    // var job_id = '2384';
     var job_id = item_details.id;
     try {
-
       const s3 = new AWS.S3({
         accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-        region: process.env.REACT_APP_AWS_REGION
+        region: process.env.REACT_APP_AWS_REGION,
       });
 
       const params = {
         Bucket: process.env.REACT_APP_AWS_BUCKET,
-        Key: job_id+".log"
+        Key: job_id + ".log",
       };
 
       const { Body } = await s3.getObject(params).promise();
@@ -65,9 +80,12 @@ function Home({ isLoggedIn }) {
 
   useEffect(() => {
     //Pass end date as start date
+    console.log("API Call First");
+
     if (filters?.startDate != null) {
+      console.log("API Call");
       setLoading(true);
-      
+
       fetchRMSJobList(filters?.startDate, filters?.startDate)
         .then((data) => {
           setTableData(data.data);
@@ -78,7 +96,7 @@ function Home({ isLoggedIn }) {
           setLoading(false);
         });
     }
-  }, [filters.startDate, filters.endDate]);
+  }, []);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -102,6 +120,23 @@ function Home({ isLoggedIn }) {
         propertyCode.includes(filters.propertyCode))
     );
   });
+
+  const refreshData = () => {
+    if (filters?.startDate != null) {
+      console.log("API Call");
+      setLoading(true);
+
+      fetchRMSJobList(filters?.startDate, filters?.startDate)
+        .then((data) => {
+          setTableData(data.data);
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          setLoading(false);
+        });
+    }
+  };
 
   const maxPage = Math.ceil(filteredData.length / itemsPerPage);
 
@@ -131,13 +166,28 @@ function Home({ isLoggedIn }) {
     }
   };
 
+  // const getDuration = (start, end) => {
+  //   var startTime = moment(start, "DD-MM-YYYY hh:mm:ss");
+  //   var endTime = moment(end, "DD-MM-YYYY hh:mm:ss");
+  //   var hoursDiff = endTime.diff(startTime, "hours");
+  //   var minutesDiff = endTime.diff(startTime, "minutes");
+  //   var secondsDiff = endTime.diff(startTime, "seconds");
+  //   return `${hoursDiff}h ${minutesDiff}m ${secondsDiff}s`;
+  // };
+
+
   const getDuration = (start, end) => {
     var startTime = moment(start, "DD-MM-YYYY hh:mm:ss");
     var endTime = moment(end, "DD-MM-YYYY hh:mm:ss");
-    var hoursDiff = endTime.diff(startTime, "hours");
-    var minutesDiff = endTime.diff(startTime, "minutes");
     var secondsDiff = endTime.diff(startTime, "seconds");
-    return `${hoursDiff}h ${minutesDiff}m ${secondsDiff}s`;
+
+    const minutes = Math.floor(secondsDiff / 60);
+    const remainingSeconds = secondsDiff % 60;
+
+    const hours = Math.floor(minutes / 60);
+    const remainingminutes = minutes % 60;
+
+    return `${hours}h ${remainingminutes}m ${remainingSeconds}s`;
   };
 
   return (
@@ -150,12 +200,16 @@ function Home({ isLoggedIn }) {
         logContent={logData}
         itemData={itemData}
       />
+       <StatusModal
+        show={statusModalIsOpen}
+        onHide={closeStatusModal}
+        singleItem={itemData}
+      />
 
       {isLoggedIn ? (
         <div>
           <div className="filter-form">
-
-          <select
+            <select
               name="pms"
               value={filters.pms}
               onChange={handleFilterChange}
@@ -232,6 +286,7 @@ function Home({ isLoggedIn }) {
               min={filters?.startDate}
               max={currentDate}
             /> */}
+            <button onClick={refreshData}>Refresh</button>
           </div>
 
           {loading ? (
@@ -281,6 +336,7 @@ function Home({ isLoggedIn }) {
                             style={{
                               backgroundColor: getStatusColor(row.status),
                             }}
+                            onClick={() => row.status == "FAILED" || row.status == "INPROCESS" ? updateStatusModal(row) : () => false }
                           >
                             {row.status}
                           </td>
@@ -290,7 +346,11 @@ function Home({ isLoggedIn }) {
                               verticalAlign: "middle",
                             }}
                           >
-                            <div onClick={()=>{openModal(row)}}>
+                            <div
+                              onClick={() => {
+                                openModal(row);
+                              }}
+                            >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="20"
@@ -355,5 +415,5 @@ const filterOptions = {
     "CREATE_WIDGET",
   ],
   statuses: ["SUCCESS", "INPROCESS", "FAILED"],
-  pms_list: ["Choice", "OperaCloud","RedRoof"],
+  pms_list: ["Choice", "OperaCloud", "RedRoof"],
 };

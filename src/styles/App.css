@@ -775,3 +775,8 @@ h2 {
   max-width: 90vw;
 };
 
+.status-modal {
+  width: 50vw;
+  max-width: 50vw;
+};
+
